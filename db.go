@@ -30,7 +30,8 @@ var userTable = `
         Username TEXT UNIQUE NOT NULL PRIMARY KEY,
         Password TEXT UNIQUE NOT NULL,
         Subdomain TEXT UNIQUE NOT NULL,
-		AllowFrom TEXT
+		AllowFrom TEXT,
+		Created INT
     );`
 
 var txtTable = `
@@ -191,8 +192,9 @@ func (d *acmedb) Register(afrom cidrslice) (ACMETxt, error) {
         Username,
         Password,
         Subdomain,
-		AllowFrom) 
-        values($1, $2, $3, $4)`
+		AllowFrom,
+		Created)
+        values($1, $2, $3, $4, $4)`
 	if Config.Database.Engine == "sqlite3" {
 		regSQL = getSQLiteStmt(regSQL)
 	}
@@ -202,7 +204,9 @@ func (d *acmedb) Register(afrom cidrslice) (ACMETxt, error) {
 		return a, errors.New("SQL error")
 	}
 	defer sm.Close()
-	_, err = sm.Exec(a.Username.String(), passwordHash, a.Subdomain, a.AllowFrom.JSON())
+    timenow := time.Now().Unix()
+
+	_, err = sm.Exec(a.Username.String(), passwordHash, a.Subdomain, a.AllowFrom.JSON(), timenow)
 	if err == nil {
 		err = d.NewTXTValuesInTransaction(tx, a.Subdomain)
 	}
