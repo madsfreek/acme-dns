@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -23,6 +24,24 @@ func webRegisterPost(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 	var regStatus int
 	var reg []byte
 	var err error
+
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		log.WithFields(log.Fields{"error": err.Error(), "remoteaddr": r.RemoteAddr}).Error("Error while parsing remote address")
+		host = ""
+	}
+	remoteIP := net.ParseIP(host)
+	for _, v := range Config.API.AllowRegistrationFrom {
+		_, vnet, _ := net.ParseCIDR(v)
+		if !vnet.Contains(remoteIP) {
+			regStatus = http.StatusBadRequest
+			reg = jsonError("registering_from_ip_not_allowed")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(regStatus)
+			_, _ = w.Write(reg)
+		}
+	}
+
 	aTXT := ACMETxt{}
 	bdata, _ := io.ReadAll(r.Body)
 	if len(bdata) > 0 {
