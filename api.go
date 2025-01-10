@@ -31,14 +31,22 @@ func webRegisterPost(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 		host = ""
 	}
 	remoteIP := net.ParseIP(host)
-	for _, v := range Config.API.AllowRegistrationFrom {
-		_, vnet, _ := net.ParseCIDR(v)
-		if !vnet.Contains(remoteIP) {
+	if len(Config.API.AllowRegistrationFrom) > 0 {
+		ok := false
+		for _, v := range Config.API.AllowRegistrationFrom {
+			_, vnet, _ := net.ParseCIDR(v)
+			ok = ok || vnet.Contains(remoteIP)
+			if ok {
+				break
+			}
+		}
+		if !ok {
 			regStatus = http.StatusBadRequest
 			reg = jsonError("registering_from_ip_not_allowed")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(regStatus)
 			_, _ = w.Write(reg)
+			return
 		}
 	}
 
