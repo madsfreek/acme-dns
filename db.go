@@ -17,7 +17,7 @@ import (
 )
 
 // DBVersion shows the database version this code uses. This is used for update checks.
-var DBVersion = 1
+var DBVersion = 2
 
 var acmeTable = `
 	CREATE TABLE IF NOT EXISTS acmedns(
@@ -106,6 +106,8 @@ func (d *acmedb) checkDBUpgrades(versionString string) error {
 func (d *acmedb) handleDBUpgrades(version int) error {
 	if version == 0 {
 		return d.handleDBUpgradeTo1()
+	} else if version == 1 {
+		return d.handleDBUpgradeTo2()
 	}
 	return nil
 }
@@ -159,6 +161,20 @@ func (d *acmedb) handleDBUpgradeTo1() error {
 		_, _ = tx.Exec("ALTER TABLE records DROP COLUMN IF EXISTS LastActive")
 	}
 	_, err = tx.Exec("UPDATE acmedns SET Value='1' WHERE Name='db_version'")
+	return err
+}
+
+func (d *acmedb) handleDBUpgradeTo2() error {
+	tx, err := d.DB.Begin()
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+			return
+		}
+		_ = tx.Commit()
+	}()
+	_, _ = tx.Exec("alter table records add Created INT")
+	_, err = tx.Exec("UPDATE acmedns SET Value='2' WHERE Name='db_version'")
 	return err
 }
 
